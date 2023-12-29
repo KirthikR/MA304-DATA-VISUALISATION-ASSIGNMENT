@@ -1,0 +1,294 @@
+---
+title: "MA304 Final Project"
+output: html_document
+date: "2023-04-26"
+---
+
+
+```{r setup, include= FALSE, message=FALSE,warning=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(plotly)
+library(gridExtra)
+library(lubridate)
+library(leaflet)
+library(ggmap)
+library(maps)
+library(tidyr)
+```
+
+
+
+```{r install , echo=TRUE, message=FALSE, warning=FALSE}
+setwd('K:/Essex/MA304/kirthik/final')
+
+kirthikdata <- read.csv('37-00049_UOF-P_2016_prepped.csv')
+pl <- read.csv('37-00049_UOF-P_2016_prepped.csv')
+
+```
+
+## TABLE
+<br>
+
+The subject_offense data are located in this table. The frequency of the supplied data, such as APOWW, No Arrest, Public Intoxication, Warrant/hold, and assault/FV, is disclosed in this data table. Tble is nothing more than providing the information in rows and columns for quick and easy understanding.
+
+<br>
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+d = sort(table(kirthikdata$SUBJECT_OFFENSE), decreasing = TRUE)[1:5]
+knitr::kable(d, caption = "Top 5 offences", col.names = c("Offence",
+                                                          "Frequency"))
+```
+## BAR PLOT
+<br>
+
+The officer_race and officer injuries are the topics of this bar plot.There are two bar graphs shown below. One asks which cop gender is more likely to sustain an injury, while the other asks which police gender is more likely to hurt the target.The gender injury % is shown on each figure. In two graphs, it can be shown that women are hurt less frequently than men.
+
+<br>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+p2 = ggplot(kirthikdata,aes(x = OFFICER_RACE,fill = OFFICER_INJURY)) + 
+  geom_bar(position = "dodge") + 
+  theme(axis.text.x = element_text(size  = 8,
+                                   angle = 90,
+                                   hjust = 1,
+                                   vjust = 1)) + xlab("Officer race") + ylab("Count") + 
+  guides(fill=guide_legend(title="Subject injury"))
+
+
+q1 = ggplot(kirthikdata, aes(x = OFFICER_GENDER, y=10, fill = OFFICER_INJURY)) + geom_bar(stat = "identity", position = "fill")+ scale_y_continuous(labels = scales::percent)+xlab("Officer gender") +  ylab("Proportion") + guides(fill=guide_legend(title="Officer injury")) + ggtitle("What officer gender is more \n likely to be injured?")+scale_fill_brewer(palette = "Paired")
+
+q2 = ggplot(kirthikdata, aes(x = OFFICER_GENDER, y=10, fill = SUBJECT_INJURY)) + geom_bar(stat = "identity", position = "fill")+ scale_y_continuous(labels = scales::percent)+xlab("Officer gender") + ylab("Proportion") + guides(fill=guide_legend(title="Subject injury"))  + ggtitle("What officer gender is more \n likely to injure the subject?")+scale_fill_brewer(palette = "Paired")
+
+
+grid.arrange(q1, q2, ncol = 2, nrow = 1)
+
+
+ggplotly(p2)
+```
+
+## BOX PLOT
+<br>
+
+This is a box plot of the data showing the subject_race incident time, hours, date, day, and month. Each box in this box plot is coloured differently for each piece of data according to the information. This graphic specifically addresses the incidence rate trend across subject_race. Each box is plotted in a distinct location since the level of the data will determine where it is shown in the graph.
+
+<br>
+```{r box, message=FALSE, warning=FALSE}
+pl$INCIDENT_DATE <- as.Date(pl$INCIDENT_DATE, format = "%m/%d/%Y")
+pl$INCIDENT_DATE <- gsub("00","20",pl$INCIDENT_DATE)
+pl$INCIDENT_DATE <- as.Date(pl$INCIDENT_DATE, format = "%Y-%m-%d")
+pl$INCIDENT_TIME <- format(strptime(pl$INCIDENT_TIME, "%I:%M:%S %p"), "%H:%M:%S")
+pl$INCIDENT_MONTH <- months(as.Date(pl$INCIDENT_DATE))
+pl$INC_MONTH <-format(pl$INCIDENT_DATE,"%m")
+pl$INCIDENT_HOUR <- as.numeric(substr(pl$INCIDENT_TIME, 0, 2))
+pl$INCIDENT_DAY <- wday(pl$INCIDENT_DATE)
+pl$INC_HOUR <- substr(pl$INCIDENT_TIME, 0, 2)
+pl$INC_DATE <- substr(pl$INCIDENT_DATE, 9, 10)
+
+## Create group of datas:
+
+pl_year <-  pl %>%
+  group_by(INCIDENT_DATE,INCIDENT_MONTH,INCIDENT_DAY) %>%
+  summarize(count = n())
+
+pl_month <-  pl %>%
+  group_by(INC_MONTH) %>%
+  summarize(count = n())
+
+pl_day <-  pl %>%
+  group_by(INCIDENT_DAY,INCIDENT_HOUR) %>%
+  summarize(count = n())
+
+pl$INC_HOUR <- substr(pl$INCIDENT_TIME, 0, 2)
+
+
+pl %>% group_by(INC_HOUR) %>%
+  summarize(avg =n()) -> pl_hour_n
+
+pl  %>% 
+  filter(SUBJECT_RACE == "Black"  | SUBJECT_RACE == "White" | SUBJECT_RACE == "Hispanic" ) %>%
+  group_by(INCIDENT_DATE,INC_MONTH,SUBJECT_RACE) %>%
+  summarize(avg =n()) -> pl_dateh
+
+
+g3 <- ggplot(pl_dateh , aes(x = (INC_MONTH), y= avg, fill = INC_MONTH)) +
+  
+      geom_boxplot() +
+      labs(x= 'days',y = 'Incident Rate', 
+           title = paste("Central Tendency of", ' Incident rate across SUBJECT RACE ')) +
+      # theme_bw() +
+  theme(legend.position="none")  + 
+    coord_cartesian(ylim = c(1, 12))
+g3
+```
+
+## PIE CHAT
+<br>
+
+The percentage of each race in the overall number of offences is shown in this pie chart using subject_race data.Each data point for the subject race is plotted with a different colour. Pie charts include a large circle with several slides that represent the data. Each slide has a distinct percentage that indicates to me how much criminality is included in the slide's data.
+
+<br>
+```{r pie, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(ggplot2)
+library(plotly)
+
+# Create the ggplot object
+
+q10 <- ggplot(data=subset(kirthikdata, SUBJECT_RACE!="NULL"), aes(x = "SUBJECT_RACE", y=10, fill = SUBJECT_RACE)) + geom_bar(stat = "identity", position = "fill")+ scale_y_continuous(labels = scales::percent)+coord_polar("y", start=0)+ggtitle("Share of each race in the total \n number of crimes")+scale_fill_brewer(palette = "YlOrRd", direction=-1)+
+  theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.y=element_blank())
+
+q10
+
+
+```
+
+## BAR PLOT
+<br>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+q11 <- ggplot(data=subset(kirthikdata, SUBJECT_INJURY!="Yes" & SUBJECT_RACE!="NULL"), aes(x = OFFICER_RACE, y=10, fill = SUBJECT_RACE)) + geom_bar(stat = "identity", position = "fill")+ scale_y_continuous(labels = scales::percent)+xlab("Officer race") + ylab("Proportion") + guides(fill=guide_legend(title="Subject race")) +ggtitle("Officer race and subject race correlation in terms of injuring the subject")+scale_fill_brewer(palette = "YlOrRd", direction=-1)
+
+ggplotly(q11)
+
+```
+## MATRIX CORRELATION
+<br>
+
+This is about matrix correlation. The sector, street number, and beast are the subjects of this correlation diagram. Correlation will assist you in comparing data in accordance with the scale's range. Every scale in this correlation plot will have a distinct colour and a different value, therefore we must grasp the range of that data based on the colour we receive in the data.
+
+<br>
+```{r correlation, message=TRUE,warning=FALSE}
+
+library(ggcorrplot)
+library(corrplot)
+
+c <- subset(pl, select = c(SECTOR, BEAT, STREET_NUMBER))
+
+cor<- apply(c, 2, as.numeric)
+
+corr.mat <- round(cor(cor), 1)
+
+pval.cor <- cor_pmat(cor)
+g = ggcorrplot(corr.mat)
+g
+
+gg <- corrplot(corr.mat, method="color")
+gg
+
+```
+
+## HEAT CORRELATION
+<br>
+
+This relates to the officer_race data and the heat correlation graph. Instead of the range scale, which is unavailable in this, you may see the crime counts in various hues.
+
+<br>
+```{r heatmap, echo=TRUE, message=FALSE, warning=FALSE}
+pl_subrace <-  pl %>%
+  group_by(SUBJECT_RACE, INC_MONTH) %>%
+  summarize(count = n())
+
+pl_offrace <-  pl %>%
+  group_by(OFFICER_RACE, INC_MONTH) %>%
+  summarize(count = n())
+
+pl_subrace <- pl_subrace[complete.cases(pl_subrace), ]
+pl_offrace <- pl_offrace[complete.cases(pl_offrace), ]
+
+c1 <- ggplot(pl_offrace, aes(x= INC_MONTH, y=OFFICER_RACE,fill = count)) + geom_tile( ) + 
+geom_text(aes(INC_MONTH, OFFICER_RACE, label = count), color = "black", size = 4) +# scale_y_discrete("Months",labels=c("January","February", "March", "April","May", "June","July","August", "September","October","November","December")) + labs(x="Days of Month", y= "Months", title=" Incident Rates across Dates and Months")+
+  scale_fill_gradientn(colours = c("#FF0000", "#FFFFFF", "#008080"))
+
+c2 <- ggplot(pl_subrace, aes(x= INC_MONTH, y=SUBJECT_RACE,fill = count)) + geom_tile( ) + 
+geom_text(aes(INC_MONTH, SUBJECT_RACE, label = count), color = "black", size = 4) + #scale_y_discrete("Months",labels=c("January","February", "March", "April","May", "June","July","August", "September","October","November","December")) + labs(x="Days of Month", y= "Months", title=" Incident Rates across Dates and Months")+
+  scale_fill_gradientn(colours = c("#800000", "#C0C0C0", "#000080"))
+
+#grid.arrange(c1,c2, nrow=2,ncol=1)
+
+c1
+
+c2
+```
+## SCATTER PLOT
+<br>
+
+This relates to the subject_offense and subject_was_arrested scatter plot. This relates to the officers injury kind vs hospitalisation and each has a distinct shade, such as no, off injury, or yes. According to the data, this is randomly plotted at various locations on the graph.
+ 
+<br>
+```{r scatter, message=FALSE,warning=FALSE}
+
+scar <- ggplot(pl, aes(SUBJECT_OFFENSE, SUBJECT_WAS_ARRESTED, 
+                             color = OFFICER_INJURY)) +
+  geom_jitter() + theme_bw()+
+  labs(x ="Officer Race", y = "Officer Hospitalization", title = "officer injury type vs hospitalization")
+
+scar
+
+```
+
+
+## TIME SERIES 
+<br>
+
+This time series compares incidence rates and hours. This graph will have a line running across it in a zigzag pattern that represents the number of crimes reported each day.
+
+<br>
+```{r timeseries, message=FALSE,warning=FALSE}
+
+kirthikdata$INC_HOUR <- substr(kirthikdata$INCIDENT_TIME, 0, 2)
+
+kirthikdata %>% group_by(INC_HOUR) %>%
+  summarize(avg =n()) -> kirthik_hour_n
+
+r2 <- ggplot(kirthik_hour_n, aes(x = INC_HOUR, y = avg, group = "count")) + geom_line( size = 1, colour = "#FF1493") + labs(x="HOURS IN A DAY", y= "INCIDENT COUNTS", title="1.c Hours vs  Incident Rates")+ theme_bw() +
+theme(axis.text.x=element_text(angle=-90, vjust=0.5)) +
+
+  labs(x = "Hour of the day", y = "count") + theme_bw()
+
+
+ggplotly(r2)
+  
+
+```
+## DENSITY PLOT
+<br>
+
+This density map shows how incident rates are distributed. There is information in this concerning event rates and their frequency.The distribution of a numerical variable can be shown on a density plot. The geom_density() function in ggplot2 handles the estimate of the kernel density and plots the outcomes.
+
+<br>
+```{r density, warning=FALSE, message=FALSE}
+r3 <- ggplot(pl_year, aes(count)) +
+  geom_density(alpha = 0.5, colour = "#4B0082", fill ="#8B4513")+ labs(x="Incident counts", y= "Density", title="1.d Distribuion of incident rates") + theme_bw()
+
+r3
+
+```
+
+
+## MAP
+<br>
+
+According to the statistics, this is a map of where crimes have been reported. Maps will enable you to locate the crime scene as quickly as possible.
+ 
+<br>
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+library(leaflet)
+map <- pl[sample(nrow(pl),300),]
+
+map$LOCATION_LATITUDE <- as.numeric(map$LOCATION_LATITUDE)
+map$LOCATION_LONGITUDE <- as.numeric(map$LOCATION_LONGITUDE)
+
+m <- leaflet(map)%>%
+  addTiles()
+
+ mm <- m %>% addMarkers(lng = ~map$LOCATION_LONGITUDE,lat = ~map$LOCATION_LATITUDE,popup = ~paste("DISTRICT NUMBER: *",LOCATION_DISTRICT))
+ 
+ mm
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
