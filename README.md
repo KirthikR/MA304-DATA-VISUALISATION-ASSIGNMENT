@@ -1,4 +1,4 @@
-# MA304-DATA-VISUALISATION-PROJECT
+# MA304-DATA-VISUALISATION-ASSIGNMENT
 # 1. Introduction:
 Briefly explain the purpose of the project and its relevance.
 Provide an overview of the dataset or topic you are visualizing.
